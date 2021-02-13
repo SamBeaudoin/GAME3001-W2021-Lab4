@@ -65,14 +65,20 @@ void PlayScene::start()
 
 	m_buildGrid();
 
+	auto offset = glm::vec2(Config::TILE_SIZE * 0.5f, Config::TILE_SIZE * 0.5);
 	m_pTarget = new Target();
-	m_pTarget->getTransform()->position = glm::vec2(400.0f, 300.0f);
+	m_pTarget->getTransform()->position = m_getTile(15, 11)->getTransform()->position + offset;
+	m_pTarget->setGridPosition(15, 11);
 	addChild(m_pTarget);
 	
+	m_computeTileCosts();
 }
 
 void PlayScene::GUI_Function() 
 {
+	//TODO: KILL THIS OFFSET
+	auto offset = glm::vec2(Config::TILE_SIZE * 0.5f, Config::TILE_SIZE * 0.5);
+
 	// Always open with a NewFrame
 	ImGui::NewFrame();
 
@@ -88,7 +94,25 @@ void PlayScene::GUI_Function()
 		m_setGridEnabled(isGridEnabled);
 	}
 
-	
+	ImGui::Separator();
+
+	static int targetPosition[] = { m_pTarget->getGridPosition().x, m_pTarget->getGridPosition().y };
+	if (ImGui::SliderInt2("Target Position", targetPosition, 0, Config::COL_NUM - 1))
+	{
+		// Row adjustments
+		if (targetPosition[1] > Config::ROW_NUM - 1)
+		{
+			targetPosition[1] = Config::ROW_NUM - 1;
+		}
+		SDL_RenderClear(Renderer::Instance()->getRenderer());
+		m_pTarget->getTransform()->position = m_getTile(targetPosition[0], targetPosition[1])->getTransform()->position + offset;
+		m_pTarget->setGridPosition(targetPosition[0], targetPosition[1]);
+		m_computeTileCosts();
+		SDL_SetRenderDrawColor(Renderer::Instance()->getRenderer(), 255, 255, 255, 255);
+		SDL_RenderPresent(Renderer::Instance()->getRenderer());
+	}
+
+
 	ImGui::Separator();
 	
 	if(ImGui::Button("Start"))
@@ -117,17 +141,84 @@ void PlayScene::GUI_Function()
 void PlayScene::m_buildGrid()
 {
 	auto tileSize = Config::TILE_SIZE;
-	
+
+	// add tiles to the grid
 	for (int row = 0; row < Config::ROW_NUM; ++row)
 	{
 		for (int col = 0; col < Config::COL_NUM; ++col)
 		{
 			Tile* tile = new Tile(); // create empty tile
 			tile->getTransform()->position = glm::vec2(col * tileSize, row * tileSize);
+			tile->setGridPosition(col, row);
 			addChild(tile);
+			tile->addLabels();
 			tile->setEnabled(false);
 			m_pGrid.push_back(tile);
 		}
+	}
+	// grid is created, now assigning info / references for each
+	for (int row = 0; row < Config::ROW_NUM; ++row)
+	{
+		for (int col = 0; col < Config::COL_NUM; ++col)
+		{
+			Tile* tile = m_getTile(col, row);
+
+			// Topmost Row
+			if (row == 0)
+			{
+				tile->setNeighbourTile(TOP_TILE, nullptr);
+			}
+			else
+			{	// assign tile to top ( row - 1 )
+				tile->setNeighbourTile(TOP_TILE, m_getTile(col, row - 1));
+			}
+
+			// Rightmost Column
+			if (col == Config::COL_NUM - 1) // COL_NUM is max so -1 is last tile in grid
+			{
+				tile->setNeighbourTile(RIGHT_TILE, nullptr);
+
+			}
+			else
+			{	// assign tile to right ( col + 1 )
+				tile->setNeighbourTile(RIGHT_TILE, m_getTile(col + 1, row ));
+			}
+
+			// Bottommost Row
+			if (row == Config::ROW_NUM -1)
+			{
+				tile->setNeighbourTile(BOTTOM_TILE, nullptr);
+
+			}
+			else
+			{
+				tile->setNeighbourTile(BOTTOM_TILE, m_getTile(col, row + 1));
+			}
+
+			// Leftmost Colomn
+			if (col == 0)
+			{
+				tile->setNeighbourTile(LEFT_TILE, nullptr);
+
+			}
+			else
+			{
+				tile->setNeighbourTile(LEFT_TILE, m_getTile(col - 1, row));
+			}
+
+
+		}
+	}
+	//std::cout << m_pGrid.size() << std::endl;
+	// Used for De-bugging, grid neighbours are allocated correctly
+}
+void PlayScene::m_computeTileCosts()
+{
+
+	for (auto tile : m_pGrid)
+	{
+		auto distance = Util::distance(m_pTarget->getGridPosition(),tile->getGridPosition() );
+		tile->setTileCost(distance);
 	}
 }
 
@@ -136,6 +227,7 @@ void PlayScene::m_setGridEnabled(bool state)
 	for (auto tile : m_pGrid)
 	{
 		tile->setEnabled(state);
+		tile->setLabelsEnabled(state);
 	}
 
 	if(state == false)
@@ -143,3 +235,8 @@ void PlayScene::m_setGridEnabled(bool state)
 		SDL_RenderClear(Renderer::Instance()->getRenderer());
 	}
 }
+
+Tile* PlayScene::m_getTile(int col, int row)
+{
+	return m_pGrid[(row * Config::COL_NUM + col)];	// row 3 col 10 would be 70
+}													// first grid piece is 0

@@ -2,6 +2,8 @@
 #ifndef __TILE__
 #define __TILE__
 #include "DisplayObject.h"
+#include "NeighbourTile.h"
+#include "Label.h"
 
 class Tile : public DisplayObject
 {
@@ -16,6 +18,29 @@ public:
 	void draw() override;
 	void update() override;
 	void clean() override;
+
+	Tile* getNeighbourTile(NeighbourTile position);		// Get and Set neighbour information
+	void setNeighbourTile(NeighbourTile position, Tile* tile);
+
+	float getTileCost();
+	void setTileCost(float cost);
+
+	void addLabels();
+	void setLabelsEnabled(bool state);
+
+	glm::vec2 getGridPosition();
+	void setGridPosition(float col, float row);
+
+private:
+
+	float m_cost;
+
+	Label* m_costLabel;
+	Label* m_statusLabel;
+
+	Tile* m_neighbourTiles[NUM_OF_NEIGHBOUR_TILES];
+
+	glm::vec2 m_gridPosition;
 };
 
 #endif /* defined (__TILE__) */
